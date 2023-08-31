@@ -1,7 +1,10 @@
 # thrift-demo
 这个项目根据 thrift 官网给出的 demo 示例生成了一个简单的 go 代码。
 
+
+
 ## Directory tree
+
 基本是 thrift 官网提供的代码。
 一部分是 Thrift 自动生成的，还有一些是从 Thrift tutorial 里直接拉下来的代码。
 ```shell
@@ -11,15 +14,15 @@
 │         ├── go.sum
 │         ├── main.go 
 │         ├── shared
-│         │         ├── GoUnusedProtection__.go
-│         │         ├── shared-consts.go
-│         │         ├── shared.go
-│         │         └── shared_service-remote 
-│         │             └── shared_service-remote.go
+│         │   ├── GoUnusedProtection__.go
+│         │   ├── shared-consts.go
+│         │   ├── shared.go
+│         │   └── shared_service-remote 
+│         │       └── shared_service-remote.go
 │         └── tutorial
 │             ├── GoUnusedProtection__.go
 │             ├── calculator-remote
-│             │         └── calculator-remote.go
+│             │   └── calculator-remote.go
 │             ├── client.go # code provided by the tutorial
 │             ├── handler.go # code provided by the tutorial. service implementation.
 │             ├── server.go # code provided by the tutorial
@@ -28,4 +31,100 @@
 ├── shared.thrift
 └── tutorial.thrift # The sample tutorial.thrift file provided by https://thrift.apache.org/
 ```
+
+
+
+## File description
+
+- `<file name>-remote.go`: 客户端示例代码
+
+- `<file name>-consts.go`: 常量所在文件
+
+- `client.go`: 封装了客户端的方法
+
+- `server.go`: 封装了服务端的方法
+
+- `handler.go`: 实现服务端接口
+
+- `main.go`: 运行客户端或服务器
+
+  
+
+### 1. tutorial.go
+
+thrift 自动生成的代码，包含了很多比较杂乱的东西。例如自动生成的对标 Java 里的`toString()`还有 getter 和 setter 方法。（看不太懂……琳琅满目的有点太乱了，需要花一点时间习惯）
+
+比较重要的是**接口声明、以及供客户端调用的接口**。
+
+至于服务端，就是接口的具体实现，需要用户自己来定义。
+
+#### 1.1 interface declaration
+
+定义了一个以服务名称命名的接口（接口包含之前 IDL 文件所描述的那几个方法 ping、add 等）
+
+```go
+type Calculator interface {
+	shared.SharedService
+	Ping(ctx context.Context) (_err error)
+	Add(ctx context.Context, num1 int32, num2 int32) (_r int32, _err error)
+	Calculate(ctx context.Context, logid int32, w *Work) (_r int32, _err error)
+	Zip(ctx context.Context) (_err error)
+}
+```
+
+#### 1.2 client
+
+Thrift IDL 会被转化为 server 代码，以及对应的 client 的代码。
+
+之后 server 端的函数在客户端也有了。客户端就跟正常调自己方法一样，但这个方法调用实际上会序列化然后发到服务端。
+
+```go
+// 客户端代码没有任何逻辑，只需要把请求参数传递给服务端就可以了
+
+type CalculatorClient struct {
+  // 一个客户端结构体
+	*shared.SharedServiceClient
+}
+
+// 客户端代码没有任何逻辑，只需要把请求参数传递给服务端就可以了
+// 以 add 函数为例，参数就是 num1 和 num2
+func (p *CalculatorClient) Add(ctx context.Context, num1 int32, num2 int32) (_r int32, _err error) {
+  
+  // 封装参数
+	var _args3 CalculatorAddArgs
+	_args3.Num1 = num1
+	_args3.Num2 = num2
+  
+  // 封装 rpc 调用返回值
+	var _result5 CalculatorAddResult
+	var _meta4 thrift.ResponseMeta
+  
+  // call 方法执行远程函数调用
+	_meta4, _err = p.Client_().Call(ctx, "add", &_args3, &_result5)
+  
+  // 下面就是返回代码，可是 meta 是什么？ 一个 TODO
+	p.SetLastResponseMeta_(_meta4)
+	if _err != nil {
+		return
+	}
+	return _result5.GetSuccess(), nil
+}
+```
+
+对于这个 client 结构体，因为声明的时候 tutorial 的服务继承了 shared service，所以结构体里包含了一个父类的客户端吧……
+
+事实上，一个客户端结构体包含了一个TClient，由它来进行真正的远程调用：
+
+```go
+type SharedServiceClient struct {
+	c    thrift.TClient
+	meta thrift.ResponseMeta
+}
+```
+
+
+
+### 2. server
+
+服务端也要实现上面那些接口，不过服务端的处理逻辑不是固定的，所以这块的代码 thrift 没有办法自动生成，需要我们自己去定义结构体实现这个接口，去写每个方法的实现逻辑，后续实现的逻辑位于下面示例代码中的 handler.go 中。
 

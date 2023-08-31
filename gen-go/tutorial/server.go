@@ -27,7 +27,7 @@ func RunServer(transportFactory thrift.TTransportFactory, protocolFactory thrift
 	fmt.Printf("%T\n", transport)
 	handler := NewCalculatorHandler()
 	processor := NewCalculatorProcessor(handler)
-	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
+	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory) // 创建了一个简单的单线程服务器
 
 	fmt.Println("Starting the simple server... on ", addr)
 	return server.Serve()
